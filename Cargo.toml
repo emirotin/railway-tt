@@ -1,5 +1,5 @@
 [package]
-name = "leptos-railway"
+name = "leptos-test"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,33 +7,22 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-axum = { version = "0.6.4", optional = true }
+axum = { version = "0.7", optional = true }
 console_error_panic_hook = "0.1"
-console_log = "1"
-cfg-if = "1"
-leptos = { git = "https://github.com/leptos-rs/leptos", branch = "main", features = ["nightly", "tracing"] }
-leptos_axum = { git = "https://github.com/leptos-rs/leptos", branch = "main", optional = true }
-leptos_meta = { git = "https://github.com/leptos-rs/leptos", branch = "main", features = ["nightly"] }
-leptos_router = { git = "https://github.com/leptos-rs/leptos", branch = "main", features = ["nightly"] }
-log = "0.4"
-simple_logger = { version = "4", features = ["colored"] }
-tokio = { version = "1.35.1", optional = true }
-tower = { version = "0.4.13", optional = true }
-tower-http = { version = "0.4", features = ["fs"], optional = true }
+leptos = { version = "0.6", features = ["nightly"] }
+leptos_axum = { version = "0.6", optional = true }
+leptos_meta = { version = "0.6", features = ["nightly"] }
+leptos_router = { version = "0.6", features = ["nightly"] }
+tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["fs"], optional = true }
 wasm-bindgen = "=0.2.89"
-thiserror = "1.0.51"
-tracing = { version = "0.1.40", optional = true }
-http = "0.2.11"
-serde = { version = "1.0.195", features = ["derive"] }
-
+thiserror = "1"
+tracing = { version = "0.1", optional = true }
+http = "1"
 
 [features]
-hydrate = [
-    "leptos/hydrate",
-    "leptos_meta/hydrate",
-    "leptos_router/hydrate",
-    "dep:tracing",
-]
+hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
     "dep:axum",
     "dep:tokio",
@@ -56,7 +45,7 @@ panic = "abort"
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
-output-name = "leptos-railway"
+output-name = "leptos-test"
 
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
 site-root = "target/site"
