@@ -17,7 +17,7 @@ async fn main() {
     let port = std::env::var("PORT").ok()
         .and_then(|p| p.parse::<u16>().ok())
         .unwrap_or(3000);
-let addr = std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)), port);
+    let addr = std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)), port);
     let routes = generate_route_list(App);
 
     // build our application with a route

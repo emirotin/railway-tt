@@ -39,6 +39,9 @@ pub fn App() -> impl IntoView {
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 #[server(CountUp, "/api")]
 pub async fn count_up(counter: u32) -> Result<u32, ServerFnError> {
+    // use dotenvy_macro::dotenv;
+    // println!("{}", dotenv!("RAILWAY_TOKEN"));
+
     Ok(counter + 1)
 }
 

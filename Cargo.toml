@@ -20,6 +20,8 @@ wasm-bindgen = "=0.2.89"
 thiserror = "1"
 tracing = { version = "0.1", optional = true }
 http = "1"
+dotenvy = "0.15.7"
+dotenvy_macro = "0.15.7"
 
 [features]
 hydrate = [
