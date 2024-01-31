@@ -36,12 +36,24 @@ pub fn App() -> impl IntoView {
     }
 }
 
+#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[server(CountUp, "/api")]
+pub async fn count_up(counter: u32) -> Result<u32, ServerFnError> {
+    Ok(counter + 1)
+}
+
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
     // Creates a reactive value to update the button
     let (count, set_count) = create_signal(0);
-    let on_click = move |_| set_count.update(|count| *count += 1);
+    let on_click = move |_| {
+        let c = count();
+        spawn_local(async move {
+            let response = count_up(c).await.expect("api call failed");
+            set_count.update(|count| *count = response)
+        });
+    };
 
     view! {
         <h1>"Welcome to Leptos!"</h1>
