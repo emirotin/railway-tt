@@ -9,14 +9,11 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-
-
-        // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
         <Stylesheet id="leptos" href="/pkg/leptos-railway.css"/>
 
         // sets the document title
-        <Title text="Welcome to Leptos"/>
+        <Title text="Let's spin up new service"/>
 
         // content for this welcome page
         <Router fallback=|| {
@@ -37,29 +34,30 @@ pub fn App() -> impl IntoView {
 }
 
 #[tracing::instrument(level = "info", fields(error), skip_all)]
-#[server(CountUp, "/api")]
-pub async fn count_up(counter: u32) -> Result<u32, ServerFnError> {
+#[server(CreateContainer, "/api")]
+pub async fn create_container() -> Result<String, ServerFnError> {
     // use dotenvy_macro::dotenv;
     // println!("{}", dotenv!("RAILWAY_TOKEN"));
 
-    Ok(counter + 1)
+    Ok("ok".to_string())
 }
 
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
     // Creates a reactive value to update the button
-    let (count, set_count) = create_signal(0);
+    let (message, set_message) = create_signal("".to_string());
     let on_click = move |_| {
-        let c = count();
+        // let c = count();
         spawn_local(async move {
-            let response = count_up(c).await.expect("api call failed");
-            set_count.update(|count| *count = response)
+            let response = create_container().await.expect("api call failed");
+            set_message.update(|message| *message = response)
         });
     };
 
     view! {
-        <h1>"Welcome to Leptos!"</h1>
-        <button on:click=on_click>"Click Me: " {count}</button>
+        <h1>"Spin up container!"</h1>
+        <button on:click=on_click>"Click Me"</button>
+        <p>{message}</p>
     }
 }
