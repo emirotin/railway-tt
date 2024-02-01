@@ -3,8 +3,7 @@ FROM rustlang/rust:nightly-alpine as builder
 
 RUN apk update && \
     apk add --no-cache bash curl npm libc-dev binaryen \
-        protoc openssl openssl-dev protobuf-dev gcc git g++ libc-dev make binaryen \
-        libssl-dev libcrypro-dev
+        protoc libressl-dev protobuf-dev gcc git g++ libc-dev make binaryen
 
 RUN npm install -g sass
 
