@@ -1,8 +1,10 @@
 use crate::error_template::{AppError, ErrorTemplate};
+use dotenvy::dotenv;
 use graphql_client::GraphQLQuery;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use std::env;
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -46,9 +48,10 @@ pub struct SampleQuery;
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 #[server(CreateContainer, "/api")]
 pub async fn create_container() -> Result<String, ServerFnError> {
-    use dotenvy_macro::dotenv;
-    let railway_token = dotenv!("RAILWAY_TOKEN");
-    let railway_project_id = dotenv!("RAILWAY_PROJECT_ID");
+    dotenv().expect(".env file not found");
+
+    let railway_token = env::var("RAILWAY_TOKEN").unwrap_or("".to_string());
+    let railway_project_id = env::var("RAILWAY_PROJECT_ID").unwrap_or("".to_string());
 
     let variables = sample_query::Variables {
         id: railway_project_id.to_string(),
