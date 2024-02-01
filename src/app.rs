@@ -39,9 +39,9 @@ pub async fn create_container() -> Result<create_service::ResponseData, ServerFn
     let github_owner = env::var("RAILWAY_GIT_REPO_OWNER").unwrap_or("".to_string());
     let github_repo_name = env::var("RAILWAY_GIT_REPO_NAME").unwrap_or("".to_string());
     let github_branch = env::var("RAILWAY_GIT_BRANCH").unwrap_or("".to_string());
-    let github_repo = format!("{}/{}", github_owner, github_repo_name);
+    let github_repo = format!("https://github.com/{}/{}", github_owner, github_repo_name);
     let next_level = 1 + env::var("LEVEL")
-        .unwrap_or("".to_string())
+        .unwrap_or("0".to_string())
         .parse::<i32>()
         .unwrap_or(0);
     let service_id = nanoid!();
