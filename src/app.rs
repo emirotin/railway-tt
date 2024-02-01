@@ -123,12 +123,6 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn HomePage() -> impl IntoView {
-    let github_owner = env::var("RAILWAY_GIT_REPO_OWNER").unwrap_or("".to_string());
-    let github_repo_name = env::var("RAILWAY_GIT_REPO_NAME").unwrap_or("".to_string());
-    let github_branch = env::var("RAILWAY_GIT_BRANCH").unwrap_or("".to_string());
-    let github_repo = format!("{}/{}", github_owner, github_repo_name);
-    let project_id = env::var("RAILWAY_PROJECT_ID").unwrap_or("".to_string());
-
     // Creates a reactive value to update the button
     let (message, set_message) = create_signal("".to_string());
     let on_click = move |_| {
@@ -139,9 +133,6 @@ fn HomePage() -> impl IntoView {
     };
 
     view! {
-        <p>"Project ID " {project_id}</p>
-        <p>"GH repo " {github_repo}</p>
-        <p>"GH branch " {github_branch}</p>
         <h1>"Spin up container!"</h1>
         <button on:click=on_click>"Click Me"</button>
         <p>{message}</p>
