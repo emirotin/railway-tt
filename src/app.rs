@@ -1,5 +1,4 @@
 use crate::error_template::{AppError, ErrorTemplate};
-use dotenvy::dotenv;
 use graphql_client::GraphQLQuery;
 use leptos::*;
 use leptos_meta::*;
@@ -45,21 +44,10 @@ pub fn App() -> impl IntoView {
 )]
 pub struct SampleQuery;
 
-#[tracing::instrument(level = "info", fields(error), skip_all)]
-#[server(CreateContainer, "/api")]
-pub async fn create_container() -> Result<String, ServerFnError> {
-    dotenv().ok();
-
+fn get_request_client() -> Result<reqwest::Client, ServerFnError> {
     let railway_token = env::var("RAILWAY_TOKEN").unwrap_or("".to_string());
-    let railway_project_id = env::var("RAILWAY_PROJECT_ID").unwrap_or("".to_string());
 
-    let variables = sample_query::Variables {
-        id: railway_project_id.to_string(),
-    };
-
-    let request_body = SampleQuery::build_query(variables);
-
-    let client = reqwest::Client::builder()
+    return Ok(reqwest::Client::builder()
         .user_agent("graphql-rust/0.10.0")
         .default_headers(
             std::iter::once((
@@ -69,15 +57,38 @@ pub async fn create_container() -> Result<String, ServerFnError> {
             ))
             .collect(),
         )
-        .build()?;
+        .build()?);
+}
+
+async fn create_container(
+    railway_project_id: String,
+) -> Result<sample_query::ResponseData, ServerFnError> {
+    let variables = sample_query::Variables {
+        id: railway_project_id.to_string(),
+    };
+
+    let request_body = SampleQuery::build_query(variables);
+
+    let client = get_request_client();
 
     let res = client
+        .unwrap()
         .post("https://backboard.railway.app/graphql/v2")
         .json(&request_body)
         .send()
         .await?;
     let response_body: graphql_client::Response<sample_query::ResponseData> = res.json().await?;
     let response_data = response_body.data.expect("response data");
+
+    return Ok(response_data);
+}
+
+#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[server(CreateContainer, "/api")]
+pub async fn create_container_action() -> Result<String, ServerFnError> {
+    let railway_project_id = env::var("RAILWAY_PROJECT_ID").unwrap_or("".to_string());
+
+    let response_data = create_container(railway_project_id).await?;
 
     Ok(response_data.project.name)
 }
@@ -89,7 +100,7 @@ fn HomePage() -> impl IntoView {
     let (message, set_message) = create_signal("".to_string());
     let on_click = move |_| {
         spawn_local(async move {
-            let response = create_container().await.expect("api call failed");
+            let response = create_container_action().await.expect("api call failed");
             set_message.update(|message| *message = response)
         });
     };
