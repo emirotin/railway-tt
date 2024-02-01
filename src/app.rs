@@ -1,4 +1,5 @@
 use crate::error_template::{AppError, ErrorTemplate};
+use graphql_client::GraphQLQuery;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
@@ -33,13 +34,49 @@ pub fn App() -> impl IntoView {
     }
 }
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/gql/schema.json",
+    query_path = "src/gql/sample.graphql",
+    response_derives = "Debug",
+    variables_derive = "Debug"
+)]
+pub struct SampleQuery;
+
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 #[server(CreateContainer, "/api")]
 pub async fn create_container() -> Result<String, ServerFnError> {
-    // use dotenvy_macro::dotenv;
-    // println!("{}", dotenv!("RAILWAY_TOKEN"));
+    use dotenvy_macro::dotenv;
+    let railway_token = dotenv!("RAILWAY_TOKEN");
+    let railway_project_id = dotenv!("RAILWAY_PROJECT_ID");
 
-    Ok("ok".to_string())
+    let variables = sample_query::Variables {
+        id: railway_project_id.to_string(),
+    };
+
+    let request_body = SampleQuery::build_query(variables);
+
+    let client = reqwest::Client::builder()
+        .user_agent("graphql-rust/0.10.0")
+        .default_headers(
+            std::iter::once((
+                reqwest::header::AUTHORIZATION,
+                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", railway_token))
+                    .unwrap(),
+            ))
+            .collect(),
+        )
+        .build()?;
+
+    let res = client
+        .post("https://backboard.railway.app/graphql/v2")
+        .json(&request_body)
+        .send()
+        .await?;
+    let response_body: graphql_client::Response<sample_query::ResponseData> = res.json().await?;
+    let response_data = response_body.data.expect("response data");
+
+    Ok(response_data.project.name)
 }
 
 /// Renders the home page of your application.
@@ -48,7 +85,6 @@ fn HomePage() -> impl IntoView {
     // Creates a reactive value to update the button
     let (message, set_message) = create_signal("".to_string());
     let on_click = move |_| {
-        // let c = count();
         spawn_local(async move {
             let response = create_container().await.expect("api call failed");
             set_message.update(|message| *message = response)
