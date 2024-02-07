@@ -1,0 +1,7 @@
+mutation CreateCustomDomain($input: CustomDomainCreateInput!) {
+  customDomainCreate(input: $input) {
+    id
+    domain
+    status
+  }
+}

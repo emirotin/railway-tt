@@ -5,10 +5,10 @@ use leptos_meta::*;
 use leptos_router::*;
 use std::{collections::HashMap, env};
 
-pub fn get_request_client() -> Result<reqwest::Client, ServerFnError> {
+pub fn get_request_client() -> Result<reqwest::Client, reqwest::Error> {
     let railway_token = env::var("RAILWAY_TOKEN").unwrap_or("".to_string());
 
-    return Ok(reqwest::Client::builder()
+    reqwest::Client::builder()
         .user_agent("graphql-rust/0.10.0")
         .default_headers(
             std::iter::once((
@@ -18,7 +18,7 @@ pub fn get_request_client() -> Result<reqwest::Client, ServerFnError> {
             ))
             .collect(),
         )
-        .build()?);
+        .build()
 }
 
 pub const RAILWAY_GQL_ENDPOINT: &str = "https://backboard.railway.app/graphql/v2";
@@ -44,12 +44,12 @@ pub async fn create_container() -> Result<create_service::ResponseData, ServerFn
         .unwrap_or("0".to_string())
         .parse::<i32>()
         .unwrap_or(0);
-    let service_id = nanoid!();
-    let name = format!("{}_level_{}", service_id, next_level);
+    let service_uid = nanoid!();
+    let service_name = format!("{}_level_{}", service_uid, next_level);
 
-    let mut service_variables = HashMap::new();
-    service_variables.insert("LEVEL".to_string(), next_level.to_string());
-    service_variables.insert(
+    let mut env_variables = HashMap::new();
+    env_variables.insert("LEVEL".to_string(), next_level.to_string());
+    env_variables.insert(
         "RAILWAY_TOKEN".to_string(),
         env::var("RAILWAY_TOKEN").unwrap_or("".to_string()),
     );
@@ -63,8 +63,8 @@ pub async fn create_container() -> Result<create_service::ResponseData, ServerFn
                 repo: Some(github_repo),
                 image: None,
             }),
-            variables: Some(service_variables),
-            name: Some(name),
+            variables: Some(env_variables),
+            name: Some(service_name),
         },
     };
 
@@ -78,17 +78,59 @@ pub async fn create_container() -> Result<create_service::ResponseData, ServerFn
         .json(&request_body)
         .send()
         .await?;
+
     let response_body: graphql_client::Response<create_service::ResponseData> = res.json().await?;
     let response_data = response_body.data.expect("response data");
 
-    return Ok(response_data);
+    Ok(response_data)
+}
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/gql/schema.json",
+    query_path = "src/gql/create_custom_domain.graphql",
+    response_derives = "Debug"
+)]
+pub struct CreateCustomDomain;
+
+pub async fn add_custom_domain(
+    service_id: &str,
+) -> Result<create_custom_domain::ResponseData, ServerFnError> {
+    let env_variables = create_custom_domain::Variables {
+        input: create_custom_domain::CustomDomainCreateInput {
+            service_id: service_id.to_string(),
+            domain: service_id.to_string(),
+            environment_id: env::var("RAILWAY_ENVIRONMENT_ID").unwrap_or("".to_string()),
+        },
+    };
+    let request_body = CreateCustomDomain::build_query(env_variables);
+
+    let client = get_request_client();
+
+    let res = client
+        .unwrap()
+        .post(RAILWAY_GQL_ENDPOINT)
+        .json(&request_body)
+        .send()
+        .await?;
+
+    let response_body: graphql_client::Response<create_custom_domain::ResponseData> =
+        res.json().await?;
+
+    let response_data = response_body.data.expect("response data");
+
+    Ok(response_data)
 }
 
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 #[server(CreateContainer, "/api")]
 pub async fn create_container_action() -> Result<String, ServerFnError> {
-    let response_data = create_container().await?;
-    Ok(response_data.service_create.id)
+    let container_data = create_container().await?;
+    let domain_data = add_custom_domain(container_data.service_create.service_id)
+        .await?
+        .expect("");
+    Ok(domain.create_custom_domain.domain)
+    // Ok(container_data.service_create.id)
 }
 
 #[component]

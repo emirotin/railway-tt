@@ -1,0 +1,5 @@
+mutation CreateDeploymentTrigger($input: DeploymentTriggerCreateInput!) {
+  deploymentTriggerCreate(input: $input) {
+    id
+  }
+}
