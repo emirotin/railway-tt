@@ -1,8 +1,9 @@
 use crate::error_template::{AppError, ErrorTemplate};
-use graphql_client::GraphQLQuery;
+use graphql_client::{reqwest::post_graphql, GraphQLQuery};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use std::error::Error;
 use std::{collections::HashMap, env};
 
 pub fn get_request_client() -> Result<reqwest::Client, reqwest::Error> {
@@ -33,16 +34,16 @@ type ServiceVariables = HashMap<String, String>;
 )]
 pub struct CreateService;
 
-pub async fn create_container() -> Result<create_service::ResponseData, ServerFnError> {
+pub async fn create_container() -> Result<create_service::ResponseData, Box<dyn Error>> {
     use nanoid::nanoid;
 
     let github_owner = env::var("RAILWAY_GIT_REPO_OWNER").unwrap_or("".to_string());
     let github_repo_name = env::var("RAILWAY_GIT_REPO_NAME").unwrap_or("".to_string());
     let github_branch = env::var("RAILWAY_GIT_BRANCH").unwrap_or("".to_string());
     let github_repo = format!("{}/{}", github_owner, github_repo_name);
-    let next_level = 1 + env::var("LEVEL")
+    let next_level: i32 = 1 + env::var("LEVEL")
         .unwrap_or("0".to_string())
-        .parse::<i32>()
+        .parse()
         .unwrap_or(0);
     let service_uid = nanoid!();
     let service_name = format!("{}_level_{}", service_uid, next_level);
@@ -68,21 +69,12 @@ pub async fn create_container() -> Result<create_service::ResponseData, ServerFn
         },
     };
 
-    let request_body = CreateService::build_query(variables);
+    let client = get_request_client()?;
 
-    let client = get_request_client();
+    let response_body =
+        post_graphql::<CreateService, &str>(&client, RAILWAY_GQL_ENDPOINT, variables).await?;
 
-    let res = client
-        .unwrap()
-        .post(RAILWAY_GQL_ENDPOINT)
-        .json(&request_body)
-        .send()
-        .await?;
-
-    let response_body: graphql_client::Response<create_service::ResponseData> = res.json().await?;
-    let response_data = response_body.data.expect("response data");
-
-    Ok(response_data)
+    Ok(response_body.data.unwrap())
 }
 
 #[derive(GraphQLQuery)]
@@ -95,42 +87,29 @@ pub struct CreateCustomDomain;
 
 pub async fn add_custom_domain(
     service_id: &str,
-) -> Result<create_custom_domain::ResponseData, ServerFnError> {
-    let env_variables = create_custom_domain::Variables {
+) -> Result<create_custom_domain::ResponseData, Box<dyn Error>> {
+    let variables = create_custom_domain::Variables {
         input: create_custom_domain::CustomDomainCreateInput {
             service_id: service_id.to_string(),
             domain: service_id.to_string(),
             environment_id: env::var("RAILWAY_ENVIRONMENT_ID").unwrap_or("".to_string()),
         },
     };
-    let request_body = CreateCustomDomain::build_query(env_variables);
 
-    let client = get_request_client();
+    let client = get_request_client()?;
 
-    let res = client
-        .unwrap()
-        .post(RAILWAY_GQL_ENDPOINT)
-        .json(&request_body)
-        .send()
-        .await?;
+    let response_body =
+        post_graphql::<CreateCustomDomain, &str>(&client, RAILWAY_GQL_ENDPOINT, variables).await?;
 
-    let response_body: graphql_client::Response<create_custom_domain::ResponseData> =
-        res.json().await?;
-
-    let response_data = response_body.data.expect("response data");
-
-    Ok(response_data)
+    Ok(response_body.data.unwrap())
 }
 
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 #[server(CreateContainer, "/api")]
 pub async fn create_container_action() -> Result<String, ServerFnError> {
     let container_data = create_container().await?;
-    let domain_data = add_custom_domain(container_data.service_create.service_id)
-        .await?
-        .expect("");
+    let domain_data = add_custom_domain(container_data.service_create.service_id).await?;
     Ok(domain.create_custom_domain.domain)
-    // Ok(container_data.service_create.id)
 }
 
 #[component]
