@@ -3,11 +3,11 @@ use graphql_client::{reqwest::post_graphql, GraphQLQuery};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
-use std::error::Error;
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, fmt::Debug};
 
-pub fn get_request_client() -> Result<reqwest::Client, reqwest::Error> {
-    let railway_token = env::var("RAILWAY_TOKEN").unwrap_or("".to_string());
+fn get_request_client() -> Result<reqwest::Client, reqwest::Error> {
+    let railway_token = env::var("RAILWAY_TOKEN").unwrap();
+
 
     reqwest::Client::builder()
         .user_agent("graphql-rust/0.10.0")
@@ -22,7 +22,7 @@ pub fn get_request_client() -> Result<reqwest::Client, reqwest::Error> {
         .build()
 }
 
-pub const RAILWAY_GQL_ENDPOINT: &str = "https://backboard.railway.app/graphql/v2";
+const RAILWAY_GQL_ENDPOINT: &str = "https://backboard.railway.app/graphql/v2";
 
 type ServiceVariables = HashMap<String, String>;
 
@@ -34,7 +34,22 @@ type ServiceVariables = HashMap<String, String>;
 )]
 pub struct CreateService;
 
-pub async fn create_container() -> Result<create_service::ResponseData, Box<dyn Error>> {
+#[derive(Debug, thiserror::Error)]
+pub enum GraphQLError {
+    #[error("ReqwestError {0}")]
+    ReqwestError(reqwest::Error),
+    #[error("ServerResponseError {0}")]
+    ServerResponseError(String),
+}
+
+impl From<reqwest::Error> for GraphQLError {
+    fn from(err: reqwest::Error) -> GraphQLError {
+        GraphQLError::ReqwestError(err)
+    }
+}
+
+pub async fn create_container() -> Result<create_service::CreateServiceServiceCreate, GraphQLError>
+{
     use nanoid::nanoid;
 
     let github_owner = env::var("RAILWAY_GIT_REPO_OWNER").unwrap_or("".to_string());
@@ -71,45 +86,60 @@ pub async fn create_container() -> Result<create_service::ResponseData, Box<dyn 
 
     let client = get_request_client()?;
 
-    let response_body =
+    let response =
         post_graphql::<CreateService, &str>(&client, RAILWAY_GQL_ENDPOINT, variables).await?;
 
-    Ok(response_body.data.unwrap())
+    if let Some(errors) = response.errors {
+        let error_message = errors.iter().map(|err| {
+            format!("{}", err)
+        }).collect::<String>();
+        print!("1: {error_message}");
+        return Err(GraphQLError::ServerResponseError(error_message));
+    }
+
+    Ok(response.data.unwrap().service_create)
 }
 
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "src/gql/schema.json",
-    query_path = "src/gql/create_custom_domain.graphql",
+    query_path = "src/gql/create_service_domain.graphql",
     response_derives = "Debug"
 )]
-pub struct CreateCustomDomain;
+pub struct CreateServiceDomain;
 
-pub async fn add_custom_domain(
+pub async fn add_service_domain(
     service_id: &str,
-) -> Result<create_custom_domain::ResponseData, Box<dyn Error>> {
-    let variables = create_custom_domain::Variables {
-        input: create_custom_domain::CustomDomainCreateInput {
+) -> Result<create_service_domain::CreateServiceDomainServiceDomainCreate, GraphQLError> {
+    let variables = create_service_domain::Variables {
+        input: create_service_domain::ServiceDomainCreateInput {
             service_id: service_id.to_string(),
-            domain: service_id.to_string(),
             environment_id: env::var("RAILWAY_ENVIRONMENT_ID").unwrap_or("".to_string()),
         },
     };
 
     let client = get_request_client()?;
 
-    let response_body =
-        post_graphql::<CreateCustomDomain, &str>(&client, RAILWAY_GQL_ENDPOINT, variables).await?;
+    let response =
+        post_graphql::<CreateServiceDomain, &str>(&client, RAILWAY_GQL_ENDPOINT, variables).await?;
 
-    Ok(response_body.data.unwrap())
+    if let Some(errors) = response.errors {
+        let error_message = errors.iter().map(|err| {
+            format!("{}", err)
+        }).collect::<String>();
+        print!("2: {error_message}");
+        return Err(GraphQLError::ServerResponseError(error_message));
+    }
+
+    Ok(response.data.unwrap().service_domain_create)
 }
 
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 #[server(CreateContainer, "/api")]
 pub async fn create_container_action() -> Result<String, ServerFnError> {
     let container_data = create_container().await?;
-    let domain_data = add_custom_domain(container_data.service_create.service_id).await?;
-    Ok(domain.create_custom_domain.domain)
+    let domain_data = add_service_domain(&container_data.id).await?;
+    Ok(domain_data.domain)
 }
 
 #[component]
@@ -118,7 +148,6 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        // id=leptos means cargo-leptos will hot-reload this stylesheet
         <Stylesheet id="leptos" href="/pkg/leptos-railway.css"/>
 
         // sets the document title
@@ -128,10 +157,7 @@ pub fn App() -> impl IntoView {
         <Router fallback=|| {
             let mut outside_errors = Errors::default();
             outside_errors.insert_with_default_key(AppError::NotFound);
-            view! {
-                <ErrorTemplate outside_errors/>
-            }
-            .into_view()
+            view! { <ErrorTemplate outside_errors/> }.into_view()
         }>
             <main>
                 <Routes>
@@ -148,13 +174,21 @@ fn HomePage() -> impl IntoView {
     let (message, set_message) = create_signal("".to_string());
     let on_click = move |_| {
         spawn_local(async move {
-            let response = create_container_action().await.expect("api call failed");
-            set_message.update(|message| *message = response)
+            let response = create_container_action().await;
+            match response {
+                Ok(res) => {
+                    set_message.update(|message| *message = res);
+                },
+                Err(error) => {
+                    set_message.update(|message| *message = error.to_string());
+                }
+            }
+            
         });
     };
 
     view! {
-        <h1>"Spin up container!"</h1>
+        <h1>"Spin up new container!"</h1>
         <button on:click=on_click>"Click Me"</button>
         <p>{message}</p>
     }

@@ -1,3 +1,4 @@
 {
-  "cSpell.words": ["dotenv", "dotenvy", "Leptos", "reqwest", "stylesheet"]
+  "cSpell.words": ["dotenv", "dotenvy", "Leptos", "reqwest", "stylesheet"],
+  "rust-analyzer.rustfmt.overrideCommand": ["leptosfmt", "--stdin", "--rustfmt"]
 }

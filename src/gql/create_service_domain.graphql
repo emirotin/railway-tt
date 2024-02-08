@@ -1,0 +1,6 @@
+mutation CreateServiceDomain($input: ServiceDomainCreateInput!) {
+  serviceDomainCreate(input: $input) {
+    id
+    domain
+  }
+}
