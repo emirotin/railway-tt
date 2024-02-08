@@ -52,10 +52,10 @@ pub async fn create_container() -> Result<create_service::CreateServiceServiceCr
 {
     use nanoid::nanoid;
 
-    // let github_owner = env::var("RAILWAY_GIT_REPO_OWNER").unwrap_or("".to_string());
-    // let github_repo_name = env::var("RAILWAY_GIT_REPO_NAME").unwrap_or("".to_string());
-    // let github_branch = env::var("RAILWAY_GIT_BRANCH").unwrap_or("".to_string());
-    // let github_repo = format!("{}/{}", github_owner, github_repo_name);
+    let github_owner = env::var("RAILWAY_GIT_REPO_OWNER").unwrap_or("".to_string());
+    let github_repo_name = env::var("RAILWAY_GIT_REPO_NAME").unwrap_or("".to_string());
+    let github_branch = env::var("RAILWAY_GIT_BRANCH").unwrap_or("".to_string());
+    let github_repo = format!("{}/{}", github_owner, github_repo_name);
     let next_level: i32 = 1 + env::var("LEVEL")
         .unwrap_or("0".to_string())
         .parse()
@@ -74,10 +74,10 @@ pub async fn create_container() -> Result<create_service::CreateServiceServiceCr
         input: create_service::ServiceCreateInput {
             project_id: env::var("RAILWAY_PROJECT_ID").unwrap_or("".to_string()),
             environment_id: Some(env::var("RAILWAY_ENVIRONMENT_ID").unwrap_or("".to_string())),
-            branch: None,//Some(github_branch),
+            branch: Some(github_branch),
             source: Some(create_service::ServiceSourceInput {
-                repo: None,//Some(github_repo),
-                image: Some("ubuntu".to_string()),
+                repo: Some(github_repo),
+                image: None,
             }),
             variables: Some(env_variables),
             name: Some(service_name),
