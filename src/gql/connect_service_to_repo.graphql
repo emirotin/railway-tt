@@ -1,0 +1,5 @@
+mutation ConnectServiceToRepo($id: String!, $input: ServiceConnectInput!) {
+  serviceConnect(id: $id, input: $input) {
+    id
+  }
+}

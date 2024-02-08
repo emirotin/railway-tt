@@ -48,14 +48,10 @@ impl From<reqwest::Error> for GraphQLError {
     }
 }
 
-pub async fn create_container() -> Result<create_service::CreateServiceServiceCreate, GraphQLError>
+pub async fn create_service() -> Result<create_service::CreateServiceServiceCreate, GraphQLError>
 {
     use nanoid::nanoid;
 
-    let github_owner = env::var("RAILWAY_GIT_REPO_OWNER").unwrap_or("".to_string());
-    let github_repo_name = env::var("RAILWAY_GIT_REPO_NAME").unwrap_or("".to_string());
-    let github_branch = env::var("RAILWAY_GIT_BRANCH").unwrap_or("".to_string());
-    let github_repo = format!("{}/{}", github_owner, github_repo_name);
     let next_level: i32 = 1 + env::var("LEVEL")
         .unwrap_or("0".to_string())
         .parse()
@@ -74,11 +70,8 @@ pub async fn create_container() -> Result<create_service::CreateServiceServiceCr
         input: create_service::ServiceCreateInput {
             project_id: env::var("RAILWAY_PROJECT_ID").unwrap_or("".to_string()),
             environment_id: Some(env::var("RAILWAY_ENVIRONMENT_ID").unwrap_or("".to_string())),
-            branch: Some(github_branch),
-            source: Some(create_service::ServiceSourceInput {
-                repo: Some(github_repo),
-                image: None,
-            }),
+            branch: None,
+            source: None,
             variables: Some(env_variables),
             name: Some(service_name),
         },
@@ -134,11 +127,54 @@ pub async fn add_service_domain(
     Ok(response.data.unwrap().service_domain_create)
 }
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/gql/schema.json",
+    query_path = "src/gql/connect_service_to_repo.graphql",
+    response_derives = "Debug"
+)]
+pub struct ConnectServiceToRepo;
+
+pub async fn connect_to_repo(
+    service_id: &str,
+) -> Result<connect_service_to_repo::ConnectServiceToRepoServiceConnect, GraphQLError> {
+    let github_owner = env::var("RAILWAY_GIT_REPO_OWNER").unwrap_or("".to_string());
+    let github_repo_name = env::var("RAILWAY_GIT_REPO_NAME").unwrap_or("".to_string());
+    let github_branch = env::var("RAILWAY_GIT_BRANCH").unwrap_or("".to_string());
+    let github_repo = format!("{}/{}", github_owner, github_repo_name);
+
+    let variables = connect_service_to_repo::Variables {
+        id: service_id.to_string(),
+        input: connect_service_to_repo::ServiceConnectInput {
+            repo: Some(github_repo),
+            branch: Some(github_branch),
+            image: None
+        },
+    };
+
+    let client = get_request_client()?;
+
+    let response =
+        post_graphql::<ConnectServiceToRepo, &str>(&client, RAILWAY_GQL_ENDPOINT, variables).await?;
+
+    if let Some(errors) = response.errors {
+        let error_message = errors.iter().map(|err| {
+            format!("{}", err)
+        }).collect::<String>();
+        print!("2: {error_message}");
+        return Err(GraphQLError::ServerResponseError(error_message));
+    }
+
+    Ok(response.data.unwrap().service_connect)
+}
+
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 #[server(CreateContainer, "/api")]
 pub async fn create_container_action() -> Result<String, ServerFnError> {
-    let container_data = create_container().await?;
-    let domain_data = add_service_domain(&container_data.id).await?;
+    let service_data = create_service().await?;
+    let service_id = service_data.id;
+    connect_to_repo(&service_id).await?;
+    let domain_data = add_service_domain(&service_id).await?;
     Ok(domain_data.domain)
 }
 
