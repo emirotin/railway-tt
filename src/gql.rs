@@ -82,7 +82,6 @@ pub async fn create_service() -> Result<create_service::CreateServiceServiceCrea
         let error_message = errors.iter().map(|err| {
             format!("{}", err)
         }).collect::<String>();
-        print!("1: {error_message}");
         return Err(GraphQLError::ServerResponseError(error_message));
     }
 
@@ -116,7 +115,6 @@ pub async fn add_service_domain(
         let error_message = errors.iter().map(|err| {
             format!("{}", err)
         }).collect::<String>();
-        print!("2: {error_message}");
         return Err(GraphQLError::ServerResponseError(error_message));
     }
 
@@ -157,7 +155,6 @@ pub async fn connect_to_repo(
         let error_message = errors.iter().map(|err| {
             format!("{}", err)
         }).collect::<String>();
-        print!("2: {error_message}");
         return Err(GraphQLError::ServerResponseError(error_message));
     }
 
