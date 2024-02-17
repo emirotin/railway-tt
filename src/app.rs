@@ -206,17 +206,19 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn HomePage() -> impl IntoView {
-    // Creates a reactive value to update the button
-    let (message, set_message) = create_signal("".to_string());
+    let (domain, set_domain) = create_signal("".to_string());
+    let (error_message, set_error_message) = create_signal("".to_string());
+    
     let on_click = move |_| {
         spawn_local(async move {
+            set_error_message.update(|message| *message = "".to_string());
             let response = create_container_action().await;
             match response {
-                Ok(res) => {
-                    set_message.update(|message| *message = res);
+                Ok(new_domain) => {
+                    set_domain.update(|domain: &mut String| *domain = new_domain);
                 },
                 Err(error) => {
-                    set_message.update(|message| *message = error.to_string());
+                    set_error_message.update(|message| *message = error.to_string());
                 }
             }
             
@@ -226,6 +228,9 @@ fn HomePage() -> impl IntoView {
     view! {
         <h1>"Spin up new container!"</h1>
         <button on:click=on_click>"Click Me"</button>
-        <p>{message}</p>
+        <p>
+            <a href=format!("https://{}", domain())>{domain}</a>
+        </p>
+        <p>{error_message}</p>
     }
 }
